@@ -31,10 +31,15 @@ bool ExeWrapperFunctions::GetExeFileBytes(const std::wstring& _pathToExeFile, st
 	return true;
 }
 
-bool ExeWrapperFunctions::CreateProcessFromBytes(char* _exeBytes)
+bool ExeWrapperFunctions::CreateHollowProcess(HMODULE& pBaseAddr_, PROCESS_INFORMATION& pInfo_)
 {
 	PROCESS_INFORMATION pi;
-	STARTUPINFO si = { sizeof si };
+	STARTUPINFO si;
+
+	ZeroMemory(&si, sizeof(si));
+	ZeroMemory(&pi, sizeof(pi));
+
+	si.cb = sizeof(si);
 
 	wchar_t* pathToExeFile = new wchar_t[MAX_PATH];
 	GetModuleFileName(NULL, pathToExeFile, MAX_PATH);
@@ -43,92 +48,200 @@ bool ExeWrapperFunctions::CreateProcessFromBytes(char* _exeBytes)
 	delete[] pathToExeFile;
 
 	/* CreateProcess gives PROCESS_ALL_ACCESS rights for created process */
-	if (!CreateProcess(nullptr, pathToExeFileStr.data(), nullptr, nullptr, false, CREATE_SUSPENDED, 0, 0, &si, &pi))
+	if (!CreateProcess(nullptr, pathToExeFileStr.data(), nullptr, nullptr, false, CREATE_SUSPENDED | CREATE_NEW_CONSOLE, 0, 0, &si, &pi))
 	{
 		std::cout << "CreateProcess Error: " << GetLastError() << std::endl;
 		return false;
 	}
 
-	CONTEXT context = { CONTEXT_INTEGER };
-	context.ContextFlags = CONTEXT_ALL;
-	GetThreadContext(pi.hThread, &context);
-
 	//PPEB peb = WinApiFunctions::NTDLL_GetPEB(pi);
 	PPEB peb = WinApiFunctions::CONTEXT_GetPEB(pi);
-	HMODULE pBaseAddr = WinApiFunctions::NTDLL_GetProcessBaseAddress(pi, peb);
+	HMODULE pBaseAddr = WinApiFunctions::GetProcessBaseAddress(pi, peb);
 
 	/* Clean process memory */
-	WinApiFunctions::NtUnmapViewOfSection(pi.hProcess, pBaseAddr);
+	if (!WinApiFunctions::NtUnmapViewOfSection(pi.hProcess, pBaseAddr))
+	{
+		std::cout << "CreateProcessFromBytes::NtUnmapViewOfSection Error: " << GetLastError() << std::endl;
+
+		TerminateProcess(pi.hProcess, 0);
+		return false;
+	}
+
+	pBaseAddr_ = pBaseAddr;
+	pInfo_ = pi;
+
+	return true;
+}
+
+LPVOID ExeWrapperFunctions::WriteProcessPages(const PROCESS_INFORMATION& _pInfo, const PIMAGE_NT_HEADERS32& _ntHeader, const HMODULE _pBaseAddr, const char* _buffer)
+{
+	LPVOID allocPtr = VirtualAllocEx(_pInfo.hProcess, _pBaseAddr, _ntHeader->OptionalHeader.SizeOfImage, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+
+	if (!allocPtr)
+	{
+		std::cout << "WriteProcessPages::VirtualAllocEx Error: " << GetLastError() << std::endl;
+
+		return nullptr;
+	}
+
+	if (!WriteProcessMemory(_pInfo.hProcess, allocPtr, _buffer, _ntHeader->OptionalHeader.SizeOfHeaders, 0))
+	{
+		std::cout << "WriteProcessPages::WriteProcessMemory Error: " << GetLastError() << std::endl;
+
+		return nullptr;
+	}
+
+	PIMAGE_SECTION_HEADER sect = IMAGE_FIRST_SECTION(_ntHeader);
+
+	for (int i = 0; i < _ntHeader->FileHeader.NumberOfSections; i++)
+	{
+		SIZE_T bytes;
+		bool result = WriteProcessMemory(_pInfo.hProcess, PCHAR(allocPtr) + sect[i].VirtualAddress, PCHAR(_buffer) + sect[i].PointerToRawData, sect[i].SizeOfRawData, &bytes);
+
+		if (!result)
+		{
+			std::cout << "WriteProcessPages::WriteProcessMemory at header index " << i << " Error: " << GetLastError() << std::endl;
+
+			return nullptr;
+		}
+
+		DWORD prevProtect;
+		result = VirtualProtectEx(_pInfo.hProcess, PCHAR(allocPtr) + sect[i].VirtualAddress, sect[i].Misc.VirtualSize, sect[i].Characteristics, &prevProtect);
+
+		if (!result)
+		{
+			/* can't change protection of some sections. wtf? */
+			std::cout << "WriteProcessPages::VirtualProtectEx at header index " << i << " Error: " << GetLastError() << std::endl;
+			/*
+			TerminateProcess(pi.hProcess, 0);
+			return nullptr;
+			*/
+		}
+	}
+
+	return allocPtr;
+}
+
+
+bool ExeWrapperFunctions::Wow64_CreateProcess(char* _exeBytes)
+{
+	HMODULE pBaseAddr = NULL;
+	PROCESS_INFORMATION pi;
+
+	if (!CreateHollowProcess(pBaseAddr, pi))
+	{
+		return false;
+	}
 
 	char* buffer = _exeBytes;
 
 	PIMAGE_DOS_HEADER dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(buffer);
 	PIMAGE_NT_HEADERS32 ntHeader = reinterpret_cast<PIMAGE_NT_HEADERS32>((reinterpret_cast<char*>(dosHeader) + dosHeader->e_lfanew));
 
-	LPVOID allocPtr = VirtualAllocEx(pi.hProcess, pBaseAddr, ntHeader->OptionalHeader.SizeOfImage, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+	LPVOID allocPtr = WriteProcessPages(pi, ntHeader, pBaseAddr, buffer);
 
 	if (!allocPtr)
 	{
-		std::cout << "CreateProcessFromBytes::VirtualAllocEx Error: " << GetLastError() << std::endl;
+		TerminateProcess(pi.hProcess, 0);
+		return false;
+	}
+
+	WOW64_CONTEXT context = { CONTEXT_INTEGER };
+	context.ContextFlags = CONTEXT_ALL;
+
+	if (!Wow64GetThreadContext(pi.hThread, &context))
+	{
+		std::cout << "Wow64_CreateProcess::Wow64GetThreadContext Error: " << GetLastError() << std::endl;
 
 		TerminateProcess(pi.hProcess, 0);
 		return false;
 	}
 
-	if (!WriteProcessMemory(pi.hProcess, allocPtr, buffer, ntHeader->OptionalHeader.SizeOfHeaders, 0))
-	{
-		std::cout << "CreateProcessFromBytes::WriteProcessMemory Error: " << GetLastError() << std::endl;
-
-		TerminateProcess(pi.hProcess, 0);
-		return false;
-	}
-
-	PIMAGE_SECTION_HEADER sect = IMAGE_FIRST_SECTION(ntHeader);
-
-	for (int i = 0; i < ntHeader->FileHeader.NumberOfSections; i++)
-	{
-		SIZE_T bytes;
-		bool result = WriteProcessMemory(pi.hProcess, PCHAR(allocPtr) + sect[i].VirtualAddress, PCHAR(buffer) + sect[i].PointerToRawData, sect[i].SizeOfRawData, &bytes);
-
-		if (!result)
-		{
-			std::cout << "WriteProcessMemory at header index " << i << " Error: " << GetLastError() << std::endl;
-
-			TerminateProcess(pi.hProcess, 0);
-			return false;
-		}
-
-		DWORD prevProtect;
-		result = VirtualProtectEx(pi.hProcess, PCHAR(allocPtr) + sect[i].VirtualAddress, sect[i].Misc.VirtualSize, sect[i].Characteristics, &prevProtect);
-
-		if (!result)
-		{
-			/* can't change protection of some sections. wtf? */
-			std::cout << "VirtualProtectEx at header index " << i << " Error: " << GetLastError() << std::endl;
-			/*
-			TerminateProcess(pi.hProcess, 0);
-			return false;
-			*/
-		}
-	}
-
-#if _WIN64
-	context.Rcx = (DWORD64)allocPtr + ntHeader->OptionalHeader.AddressOfEntryPoint;
-#else
 	context.Eax = (DWORD)allocPtr + ntHeader->OptionalHeader.AddressOfEntryPoint;
-#endif
 
-	if (!SetThreadContext(pi.hThread, &context))
+	if (!Wow64SetThreadContext(pi.hThread, &context))
 	{
-		std::cout << "SetThreadContext Error: " << GetLastError() << std::endl;
+		std::cout << "Wow64_CreateProcess::Wow64SetThreadContext Error: " << GetLastError() << std::endl;
 
 		TerminateProcess(pi.hProcess, 0);
 		return false;
 	}
-	
+
 	ResumeThread(pi.hThread);
 
 	return true;
+}
+
+#if _WIN64
+bool ExeWrapperFunctions::x64_CreateProcess(char* _exeBytes)
+{
+	HMODULE pBaseAddr = NULL;
+	PROCESS_INFORMATION pi;
+
+	if (!CreateHollowProcess(pBaseAddr, pi))
+	{
+		return false;
+	}
+
+	char* buffer = _exeBytes;
+
+	PIMAGE_DOS_HEADER dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(buffer);
+	PIMAGE_NT_HEADERS32 ntHeader = reinterpret_cast<PIMAGE_NT_HEADERS32>((reinterpret_cast<char*>(dosHeader) + dosHeader->e_lfanew));
+
+	LPVOID allocPtr = WriteProcessPages(pi, ntHeader, pBaseAddr, buffer);
+
+	if (!allocPtr)
+	{
+		TerminateProcess(pi.hProcess, 0);
+		return false;
+	}
+
+	CONTEXT context = { CONTEXT_INTEGER };
+	context.ContextFlags = CONTEXT_ALL;
+
+	if (!GetThreadContext(pi.hThread, &context))
+	{
+		std::cout << "x64_CreateProcess::GetThreadContext Error: " << GetLastError() << std::endl;
+
+		TerminateProcess(pi.hProcess, 0);
+		return false;
+	}
+
+	context.Rcx = reinterpret_cast<DWORD64>(allocPtr) + ntHeader->OptionalHeader.AddressOfEntryPoint;
+
+	if (!SetThreadContext(pi.hThread, &context))
+	{
+		std::cout << "x64_CreateProcess::SetThreadContext Error: " << GetLastError() << std::endl;
+
+		TerminateProcess(pi.hProcess, 0);
+		return false;
+	}
+
+	ResumeThread(pi.hThread);
+
+	return true;
+}
+#endif
+
+bool ExeWrapperFunctions::RunWrappedProcess(char* _exeBytes)
+{
+#if _WIN64
+	/* x64 app on x64 system */
+	return x64_CreateProcess(_exeBytes);
+#else
+	if (BOOL isSelfWow = false; IsWow64Process(GetCurrentProcess(), &isSelfWow) && isSelfWow)
+	{
+		/* x32 app on x64 system */
+		return Wow64_CreateProcess(_exeBytes);
+	}
+	else
+	{
+		/* x32 app on x32 system */
+		std::cout << "x32 systems are not supported!" << std::endl;
+	}
+#endif
+
+	return false;
 }
 
 bool ExeWrapperFunctions::WrapExeFile()

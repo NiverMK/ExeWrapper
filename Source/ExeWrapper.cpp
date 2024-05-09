@@ -19,7 +19,7 @@ int main()
 	else
 	{
 		/* wrapped .exe was found; trying to launch it */
-		if (!ExeWrapperFunctions::CreateProcessFromBytes(unwrappedExe.data()))
+		if (!ExeWrapperFunctions::RunWrappedProcess(unwrappedExe.data()))
 		{
 			system("pause");
 		}

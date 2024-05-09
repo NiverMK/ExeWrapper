@@ -10,7 +10,7 @@ namespace WinApiFunctions
 	PPEB CONTEXT_GetPEB(const PROCESS_INFORMATION& _processInfo);
 
 	/* Get base address of process */
-	HMODULE NTDLL_GetProcessBaseAddress(const PROCESS_INFORMATION& _processInfo, const PPEB _peb);
+	HMODULE GetProcessBaseAddress(const PROCESS_INFORMATION& _processInfo, const PPEB _peb);
 
 	/* Clean process stack */
 	bool NtUnmapViewOfSection(const HANDLE _processHandle, const PVOID _baseAddress);

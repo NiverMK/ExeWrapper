@@ -16,9 +16,9 @@ Used libraries: STL, WinAPI, NtDll
 Tested on Windows 10 (x64) and 11 (x64). 
 
 x64 ExeWrapper can wrap and run x64 .exe files.
+x32 ExeWrapper can wrap and run x32 .exe files on x64 system.
 
 # TODO
 - Move icons of source *.exe file into created one;
 - Move source *.exe attributes into created one;
-- Add ability to wrap x32 .exe by x32 ExeWrapper and run it on x64 system.
 - Add ability to wrap x32 .exe by x64 ExeWrapper and run it on x64 system.

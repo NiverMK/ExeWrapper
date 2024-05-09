@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-typedef NTSTATUS(*NtQueryInformationProcess)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
-typedef NTSTATUS(*NtUnmapViewOfSectionFunc)(HANDLE, PVOID);
+typedef NTSTATUS(NTAPI *NtQueryInformationProcess)(HANDLE, ULONG, PVOID, ULONG, PULONG);
+typedef NTSTATUS(NTAPI *NtUnmapViewOfSectionFunc)(HANDLE, PVOID);
 
 static HMODULE hNTDLL = NULL;
 
@@ -29,7 +29,9 @@ PPEB WinApiFunctions::NTDLL_GetPEB(const PROCESS_INFORMATION& _processInfo)
 	NtQueryInformationProcess NtQueryInformationProcessPtr = reinterpret_cast<NtQueryInformationProcess>(functionPtr);
 
 	PROCESS_BASIC_INFORMATION pbi;
-	const NTSTATUS status = NtQueryInformationProcessPtr(_processInfo.hProcess, PROCESSINFOCLASS::ProcessBasicInformation, &pbi, sizeof(PROCESS_BASIC_INFORMATION), nullptr);
+	ZeroMemory(&pbi, sizeof(pbi));
+
+	const NTSTATUS status = NtQueryInformationProcessPtr(_processInfo.hProcess, 0, &pbi, sizeof(pbi), NULL);
 
 	return pbi.PebBaseAddress;
 }
@@ -85,7 +87,7 @@ PPEB WinApiFunctions::CONTEXT_GetPEB(const PROCESS_INFORMATION& _processInfo)
 			if (Wow64GetThreadContext(_processInfo.hThread, &ctx))
 			{
 				/* ctx.Eax - PEB adress. Process base adress is located ((char*)ctx.Eax + 0x08) for x32 */
-				return reinterpret_cast<PPEB>(ctx.Eax);
+				return reinterpret_cast<PPEB>(ctx.Ebx);
 			}
 		}
 		else
@@ -114,7 +116,7 @@ PPEB WinApiFunctions::CONTEXT_GetPEB(const PROCESS_INFORMATION& _processInfo)
 	return nullptr;
 }
 
-HMODULE WinApiFunctions::NTDLL_GetProcessBaseAddress(const PROCESS_INFORMATION& _processInfo, const PPEB _peb)
+HMODULE WinApiFunctions::GetProcessBaseAddress(const PROCESS_INFORMATION& _processInfo, const PPEB _peb)
 {
 	/* x64 - char* +0x10 , x86 char* +0x08 */
 	LPCVOID imageBasePtr = &_peb->ProcessBaseAddress;
