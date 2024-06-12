@@ -1,9 +1,6 @@
 #pragma once
 
-#include <windows.h>
-
-/* defined in <ntstatus.h>. Redefine it here to avoid conflicts between other definitions in <ntstatus.h> and <windows.h> */
-#define STATUS_SUCCESS                   ((NTSTATUS)0x00000000L)    // ntsubauth
+#include "windows.h"
 
 typedef enum _PROCESSINFOCLASS
 {
@@ -88,7 +85,7 @@ typedef struct _PEB_LDR_DATA {
 	BYTE		Reserved1[8];
 	PVOID		Reserved2[3];
 	LIST_ENTRY	InMemoryOrderModuleList;
-} PEB_LDR_DATA, * PPEB_LDR_DATA;
+} PEB_LDR_DATA, *PPEB_LDR_DATA;
 
 typedef struct _PEB
 {

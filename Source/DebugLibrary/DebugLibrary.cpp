@@ -1,11 +1,10 @@
-#include "DebugFunctions.h"
-#include "../WinApiFunctions/WinApiFunctions.h"
+#include "DebugLibrary.h"
 
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 
-void DebugFunctions::PrintSelfMemoryBlock(const SIZE_T _start, const SIZE_T _lines, const SIZE_T _columns)
+void DebugLibrary::PrintSelfMemoryBlock(const SIZE_T _start, const SIZE_T _lines, const SIZE_T _columns)
 {
 	if (!_lines || !_columns)
 	{
@@ -32,11 +31,11 @@ void DebugFunctions::PrintSelfMemoryBlock(const SIZE_T _start, const SIZE_T _lin
 			bytePtr++;
 		}
 
-		std::cout << std::endl;
+		EW_LOG(L"");
 	}
 }
 
-void DebugFunctions::PrintProcessMemoryBlock(
+void DebugLibrary::PrintProcessMemoryBlock(
 	const HANDLE _hProcess,
 	const LPCVOID _imageBase,
 	const SIZE_T _start,
@@ -63,14 +62,14 @@ void DebugFunctions::PrintProcessMemoryBlock(
 				bytePtr++;
 			}
 
-			std::cout << std::endl;
+			EW_LOG(L"");
 		}
 	}
 
 	delete[] buffer;
 }
 
-void DebugFunctions::PrintFileMemoryBlock(const wchar_t* _fileName, const SIZE_T _start, const SIZE_T _lines, const SIZE_T _columns)
+void DebugLibrary::PrintFileMemoryBlock(const wchar_t* _fileName, const SIZE_T _start, const SIZE_T _lines, const SIZE_T _columns)
 {
 	if (!_lines || !_columns)
 	{
@@ -95,7 +94,7 @@ void DebugFunctions::PrintFileMemoryBlock(const wchar_t* _fileName, const SIZE_T
 
 		if (exeFile.read(buffer, fileSize))
 		{
-			std::cout << "file size: " << fileSize << std::endl;
+			EW_LOG(L"file size: %lld", fileSize);
 
 			char* bytePtr = buffer + _start;
 
@@ -108,7 +107,7 @@ void DebugFunctions::PrintFileMemoryBlock(const wchar_t* _fileName, const SIZE_T
 					printf("%02X ", static_cast<unsigned char>(*bytePtr));
 					bytePtr++;
 				}
-				std::cout << std::endl;
+				EW_LOG(L"");
 			}
 		}
 

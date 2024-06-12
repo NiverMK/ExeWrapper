@@ -1,37 +1,16 @@
-#include "ExeWrapperFunctions.h"
-#include "../WinapiFunctions/WinApiFunctions.h"
-#include "../DebugFunctions/DebugFunctions.h"
-#include "../../Resources/resource.h"
+#include "ProcessLibrary.h"
+#include "../PebLibrary/PebLibrary.h"
+#include "../DebugLibrary/DebugLibrary.h"
 
+#include <string>
 #include <iostream>
-#include <fstream>
 
-bool ExeWrapperFunctions::GetExeFileBytes(const std::wstring& _pathToExeFile, std::string& _outBytes)
-{
-	std::ifstream exeFile;
-	exeFile.open(_pathToExeFile, std::ios::binary | std::ios::ate);
+/* defined in <ntstatus.h>. Redefine it here to avoid conflicts between other definitions in <ntstatus.h> and <windows.h> */
+#define STATUS_SUCCESS                   ((NTSTATUS)0x00000000L)    // ntsubauth
 
-	if (!exeFile.is_open())
-	{
-		std::cout << "GetExeFileBytes::open Cannot open the file!" << std::endl;
-		return false;
-	}
+typedef NTSTATUS(NTAPI* NtUnmapViewOfSectionFunc)(HANDLE, PVOID);
 
-	std::streamsize fileSize = exeFile.tellg();
-	exeFile.seekg(0, std::ios::beg);
-
-	_outBytes.resize(fileSize);
-
-	if (!exeFile.read(_outBytes.data(), fileSize))
-	{
-		std::cout << "GetExeFileBytes::read Cannot read the file!" << std::endl;
-		return true;
-	};
-
-	return true;
-}
-
-bool ExeWrapperFunctions::CreateHollowProcess(HMODULE& pBaseAddr_, PROCESS_INFORMATION& pInfo_)
+bool ProcessLibrary::CreateHollowProcess(HMODULE& pBaseAddr_, PROCESS_INFORMATION& pInfo_)
 {
 	PROCESS_INFORMATION pi;
 	STARTUPINFO si;
@@ -50,18 +29,19 @@ bool ExeWrapperFunctions::CreateHollowProcess(HMODULE& pBaseAddr_, PROCESS_INFOR
 	/* CreateProcess gives PROCESS_ALL_ACCESS rights for created process */
 	if (!CreateProcess(nullptr, pathToExeFileStr.data(), nullptr, nullptr, false, CREATE_SUSPENDED | CREATE_NEW_CONSOLE, 0, 0, &si, &pi))
 	{
-		std::cout << "CreateProcess Error: " << GetLastError() << std::endl;
+		EW_LOG_WIN_ERROR(L"Can't create the process!");
+
 		return false;
 	}
 
 	//PPEB peb = WinApiFunctions::NTDLL_GetPEB(pi);
-	PPEB peb = WinApiFunctions::CONTEXT_GetPEB(pi);
-	HMODULE pBaseAddr = WinApiFunctions::GetProcessBaseAddress(pi, peb);
+	PPEB peb = PebLibrary::CONTEXT_GetPEB(pi);
+	HMODULE pBaseAddr = PebLibrary::GetProcessBaseAddress(pi, peb);
 
 	/* Clean process memory */
-	if (!WinApiFunctions::NtUnmapViewOfSection(pi.hProcess, pBaseAddr))
+	if (!NtUnmapViewOfSection(pi.hProcess, pBaseAddr))
 	{
-		std::cout << "CreateProcessFromBytes::NtUnmapViewOfSection Error: " << GetLastError() << std::endl;
+		EW_LOG_WIN_ERROR(L"Can't unmap!");
 
 		TerminateProcess(pi.hProcess, 0);
 		return false;
@@ -73,20 +53,20 @@ bool ExeWrapperFunctions::CreateHollowProcess(HMODULE& pBaseAddr_, PROCESS_INFOR
 	return true;
 }
 
-LPVOID ExeWrapperFunctions::WriteProcessPages(const PROCESS_INFORMATION& _pInfo, const PIMAGE_NT_HEADERS32& _ntHeader, const HMODULE _pBaseAddr, const char* _buffer)
+LPVOID ProcessLibrary::WriteProcessPages(const PROCESS_INFORMATION& _pInfo, const PIMAGE_NT_HEADERS32& _ntHeader, const HMODULE _pBaseAddr, const char* _buffer)
 {
 	LPVOID allocPtr = VirtualAllocEx(_pInfo.hProcess, _pBaseAddr, _ntHeader->OptionalHeader.SizeOfImage, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 
 	if (!allocPtr)
 	{
-		std::cout << "WriteProcessPages::VirtualAllocEx Error: " << GetLastError() << std::endl;
+		EW_LOG_WIN_ERROR(L"Can't alloc memory!");
 
 		return nullptr;
 	}
 
 	if (!WriteProcessMemory(_pInfo.hProcess, allocPtr, _buffer, _ntHeader->OptionalHeader.SizeOfHeaders, 0))
 	{
-		std::cout << "WriteProcessPages::WriteProcessMemory Error: " << GetLastError() << std::endl;
+		EW_LOG_WIN_ERROR(L"Can't write process memory!");
 
 		return nullptr;
 	}
@@ -100,7 +80,7 @@ LPVOID ExeWrapperFunctions::WriteProcessPages(const PROCESS_INFORMATION& _pInfo,
 
 		if (!result)
 		{
-			std::cout << "WriteProcessPages::WriteProcessMemory at header index " << i << " Error: " << GetLastError() << std::endl;
+			EW_LOG_WIN_ERROR(L"Can't write memory at header index %d!", i);
 
 			return nullptr;
 		}
@@ -111,7 +91,7 @@ LPVOID ExeWrapperFunctions::WriteProcessPages(const PROCESS_INFORMATION& _pInfo,
 		if (!result)
 		{
 			/* can't change protection of some sections. wtf? */
-			std::cout << "WriteProcessPages::VirtualProtectEx at header index " << i << " Error: " << GetLastError() << std::endl;
+			EW_LOG_WIN_ERROR(L"Can't change page's protection at header index %d!", i);
 			/*
 			TerminateProcess(pi.hProcess, 0);
 			return nullptr;
@@ -122,8 +102,7 @@ LPVOID ExeWrapperFunctions::WriteProcessPages(const PROCESS_INFORMATION& _pInfo,
 	return allocPtr;
 }
 
-
-bool ExeWrapperFunctions::Wow64_CreateProcess(char* _exeBytes)
+bool ProcessLibrary::Wow64_CreateProcess(char* _exeBytes)
 {
 	HMODULE pBaseAddr = NULL;
 	PROCESS_INFORMATION pi;
@@ -151,7 +130,7 @@ bool ExeWrapperFunctions::Wow64_CreateProcess(char* _exeBytes)
 
 	if (!Wow64GetThreadContext(pi.hThread, &context))
 	{
-		std::cout << "Wow64_CreateProcess::Wow64GetThreadContext Error: " << GetLastError() << std::endl;
+		EW_LOG_WIN_ERROR(L"Can't get thread context!");
 
 		TerminateProcess(pi.hProcess, 0);
 		return false;
@@ -161,7 +140,7 @@ bool ExeWrapperFunctions::Wow64_CreateProcess(char* _exeBytes)
 
 	if (!Wow64SetThreadContext(pi.hThread, &context))
 	{
-		std::cout << "Wow64_CreateProcess::Wow64SetThreadContext Error: " << GetLastError() << std::endl;
+		EW_LOG_WIN_ERROR(L"Can't set thread context!");
 
 		TerminateProcess(pi.hProcess, 0);
 		return false;
@@ -173,7 +152,7 @@ bool ExeWrapperFunctions::Wow64_CreateProcess(char* _exeBytes)
 }
 
 #if _WIN64
-bool ExeWrapperFunctions::x64_CreateProcess(char* _exeBytes)
+bool ProcessLibrary::x64_CreateProcess(char* _exeBytes)
 {
 	HMODULE pBaseAddr = NULL;
 	PROCESS_INFORMATION pi;
@@ -201,7 +180,7 @@ bool ExeWrapperFunctions::x64_CreateProcess(char* _exeBytes)
 
 	if (!GetThreadContext(pi.hThread, &context))
 	{
-		std::cout << "x64_CreateProcess::GetThreadContext Error: " << GetLastError() << std::endl;
+		EW_LOG_WIN_ERROR(L"Can't get thread context!");
 
 		TerminateProcess(pi.hProcess, 0);
 		return false;
@@ -211,7 +190,7 @@ bool ExeWrapperFunctions::x64_CreateProcess(char* _exeBytes)
 
 	if (!SetThreadContext(pi.hThread, &context))
 	{
-		std::cout << "x64_CreateProcess::SetThreadContext Error: " << GetLastError() << std::endl;
+		EW_LOG_WIN_ERROR(L"Can't set thread context!");
 
 		TerminateProcess(pi.hProcess, 0);
 		return false;
@@ -223,7 +202,7 @@ bool ExeWrapperFunctions::x64_CreateProcess(char* _exeBytes)
 }
 #endif
 
-bool ExeWrapperFunctions::RunWrappedProcess(char* _exeBytes)
+bool ProcessLibrary::CreateProcessFromRam(char* _exeBytes)
 {
 #if _WIN64
 	/* x64 app on x64 system */
@@ -237,57 +216,32 @@ bool ExeWrapperFunctions::RunWrappedProcess(char* _exeBytes)
 	else
 	{
 		/* x32 app on x32 system */
-		std::cout << "x32 systems are not supported!" << std::endl;
+		EW_LOG(L"x32 systems are not supported!");
 	}
 #endif
 
 	return false;
 }
 
-bool ExeWrapperFunctions::WrapExeFile()
+bool ProcessLibrary::NtUnmapViewOfSection(const HANDLE _processHandle, const PVOID _baseAddress)
 {
-	std::cout << "Drag here .exe file" << std::endl;
+	HMODULE hNTDLL = GetModuleHandleW(L"ntdll.dll");
 
-	std::wstring pathToExeFile;
-	std::getline(std::wcin, pathToExeFile);
-
-	if (pathToExeFile.length())
+	if (!hNTDLL)
 	{
-		if (pathToExeFile.data()[0] == L'\"')
-		{
-			pathToExeFile = pathToExeFile.substr(1, pathToExeFile.length() - 1);
-		}
-		if (pathToExeFile.data()[pathToExeFile.length() - 1] == L'\"')
-		{
-			pathToExeFile = pathToExeFile.substr(0, pathToExeFile.length() - 1);
-		}
-	}
-	else
-	{
+		EW_LOG_WIN_ERROR(L"Can't find loaded ntdll.dll!");
 		return false;
 	}
 
-	std::string exeBytes;
-	if (!GetExeFileBytes(pathToExeFile, exeBytes))
+	FARPROC functionPtr = GetProcAddress(hNTDLL, "NtUnmapViewOfSection");
+
+	if (!functionPtr)
 	{
+		EW_LOG_WIN_ERROR(L"Can't find NtUnmapViewOfSection function!");
 		return false;
 	}
 
-	const size_t pos = pathToExeFile.rfind(L"\\");
-	const std::wstring newExeFileName = pathToExeFile.substr(pos + 1);
-	std::wstring newExeFilePath;
+	NtUnmapViewOfSectionFunc NtUnmapViewOfSectionPtr = reinterpret_cast<NtUnmapViewOfSectionFunc>(functionPtr);
 
-	if (!WinApiFunctions::DuplicateSelfExeFile(newExeFileName.c_str(), newExeFilePath))
-	{
-		return false;
-	}
-
-	if (!WinApiFunctions::WrapResourceIntoExeFile(newExeFilePath.c_str(), IDR_BIN1, IDR_BIN1_TYPE, exeBytes))
-	{
-		return false;
-	}
-
-	std::cout << "Wrapping was successful! " << std::endl;
-
-	return true;
+	return NtUnmapViewOfSectionPtr(_processHandle, _baseAddress) == STATUS_SUCCESS;
 }

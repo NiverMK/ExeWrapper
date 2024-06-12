@@ -20,22 +20,30 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resources\resource.h" />
-    <ClInclude Include="Source\DebugFunctions\DebugFunctions.h" />
-    <ClInclude Include="Source\ExeWrapperFunctions\ExeWrapperFunctions.h" />
-    <ClInclude Include="Source\WinApiFunctions\WinApiFunctions.h" />
-    <ClInclude Include="Source\WinApiFunctions\WinApiStructs.h" />
+    <ClInclude Include="Source\DebugLibrary\DebugLibrary.h" />
+    <ClInclude Include="Source\ExeWrapperLibrary\ExeWrapperLibrary.h" />
+    <ClInclude Include="Source\PebLibrary\PebLibrary.h" />
+    <ClInclude Include="Source\PebLibrary\PebLibStructs.h" />
+    <ClInclude Include="Source\ProcessLibrary\ProcessLibrary.h" />
+    <ClInclude Include="Source\ResourcesLibrary\ResourcesLibrary.h" />
+    <ClInclude Include="Source\ResourcesLibrary\ResourcesLibStructs.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Source\DebugFunctions\DebugFunctions.cpp" />
+    <ClCompile Include="Source\DebugLibrary\DebugLibrary.cpp" />
     <ClCompile Include="Source\ExeWrapper.cpp" />
-    <ClCompile Include="Source\ExeWrapperFunctions\ExeWrapperFunctions.cpp" />
-    <ClCompile Include="Source\WinApiFunctions\WinApiFunctions.cpp" />
+    <ClCompile Include="Source\ExeWrapperLibrary\ExeWrapperLibrary.cpp" />
+    <ClCompile Include="Source\PebLibrary\PebLibrary.cpp" />
+    <ClCompile Include="Source\ProcessLibrary\ProcessLibrary.cpp" />
+    <ClCompile Include="Source\ResourcesLibrary\ResourcesLibrary.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\bin1.bin" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources\Resource.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\icon1.ico" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

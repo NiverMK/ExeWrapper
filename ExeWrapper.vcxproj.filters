@@ -12,36 +12,81 @@
     <Filter Include="Resource Files">
       <UniqueIdentifier>{3763ee58-b57f-460e-9374-dfcdf293445c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\DebugLibrary">
+      <UniqueIdentifier>{ff4a29b5-3ea5-4c27-bcaf-0f1d82dad979}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\DebugLibrary">
+      <UniqueIdentifier>{dc03e22e-c6b4-4b7d-b607-6df91cc5008d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ExeWrapperLibrary">
+      <UniqueIdentifier>{bd4b730e-adfd-4407-b6ca-b3577e2fe19d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ExeWrapperLibrary">
+      <UniqueIdentifier>{0dfe7016-3773-45df-a9d3-04d8896f6f1e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ResourcesLibrary">
+      <UniqueIdentifier>{7b2f3b3f-e770-4325-9c3b-1d91e39d6d43}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ResourcesLibrary">
+      <UniqueIdentifier>{c31e4594-8966-4058-b018-091efa6f53b2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\PebLibrary">
+      <UniqueIdentifier>{154452fb-2f5b-4d1b-b0e6-e4d874746416}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PebLibrary">
+      <UniqueIdentifier>{460c2906-96b0-4efc-8b22-3b3bacabab1e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ProcessLibrary">
+      <UniqueIdentifier>{b8498041-c276-48f7-ace4-5e601358b7cc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ProcessLibrary">
+      <UniqueIdentifier>{3846102d-ec0d-40f7-ba5c-3979206eb083}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Source\DebugFunctions\DebugFunctions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\WinApiFunctions\WinApiFunctions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\WinApiFunctions\WinApiStructs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\ExeWrapperFunctions\ExeWrapperFunctions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Resources\resource.h">
       <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\DebugLibrary\DebugLibrary.h">
+      <Filter>Header Files\DebugLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\ExeWrapperLibrary\ExeWrapperLibrary.h">
+      <Filter>Header Files\ExeWrapperLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\ResourcesLibrary\ResourcesLibrary.h">
+      <Filter>Header Files\ResourcesLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\ResourcesLibrary\ResourcesLibStructs.h">
+      <Filter>Header Files\ResourcesLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PebLibrary\PebLibrary.h">
+      <Filter>Header Files\PebLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\ProcessLibrary\ProcessLibrary.h">
+      <Filter>Header Files\ProcessLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PebLibrary\PebLibStructs.h">
+      <Filter>Header Files\PebLibrary</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\ExeWrapper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\WinApiFunctions\WinApiFunctions.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Source\DebugLibrary\DebugLibrary.cpp">
+      <Filter>Source Files\DebugLibrary</Filter>
     </ClCompile>
-    <ClCompile Include="Source\DebugFunctions\DebugFunctions.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Source\ExeWrapperLibrary\ExeWrapperLibrary.cpp">
+      <Filter>Source Files\ExeWrapperLibrary</Filter>
     </ClCompile>
-    <ClCompile Include="Source\ExeWrapperFunctions\ExeWrapperFunctions.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Source\ResourcesLibrary\ResourcesLibrary.cpp">
+      <Filter>Source Files\ResourcesLibrary</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\PebLibrary\PebLibrary.cpp">
+      <Filter>Source Files\PebLibrary</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\ProcessLibrary\ProcessLibrary.cpp">
+      <Filter>Source Files\ProcessLibrary</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -53,5 +98,10 @@
     <ResourceCompile Include="Resources\Resource.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\icon1.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

@@ -1,25 +1,54 @@
-#include "WinapiFunctions/WinApiFunctions.h"
-#include "ExeWrapperFunctions/ExeWrapperFunctions.h"
+#include "ExeWrapperLibrary/ExeWrapperLibrary.h"
+#include "ResourcesLibrary/ResourcesLibrary.h"
+#include "DebugLibrary/DebugLibrary.h"
 #include "../Resources/resource.h"
 
-#include <iostream>
+#define WRAP_NEW_EXE "--wrap"
+#define DEFAULT_BIN_SIZE 1
 
-int main()
+int main(int argc, char* argv[])
 {
-	std::string unwrappedExe = WinApiFunctions::UnwrapResourceFromExeFile(nullptr, IDR_BIN1, IDR_BIN1_TYPE);
+	bool startWrapping = false;
 
-	if (unwrappedExe.length() == 1)
+	for (int index = 0; index < argc; index++)
 	{
-		std::cout << "There is no wrapped .exe; starting wrapping procedure" << std::endl;
+		std::string str = argv[index];
 
-		ExeWrapperFunctions::WrapExeFile();
+		if (strstr(argv[index], WRAP_NEW_EXE))
+		{
+			EW_LOG(L"Launch param WRAP_NEW_EXE was found; starting wrapping procedure");
+
+			startWrapping = true;
+			break;
+		}
+	}
+
+	if (!startWrapping)
+	{
+		ResourceGetter binGetter{ nullptr };
+		DWORD binSize = binGetter.GetResourceSize(IDR_BIN1, IDR_BIN1_TYPE);
+
+		if (binSize == DEFAULT_BIN_SIZE)
+		{
+			EW_LOG(L"There is no wrapped .exe; starting wrapping procedure");
+
+			startWrapping = true;
+		}
+	}
+
+	if (startWrapping)
+	{
+		if (ExeWrapperFunctions::WrapExeFile())
+		{
+			EW_LOG(L"Wrapping was successful!");
+		}
 
 		system("pause");
 	}
 	else
 	{
 		/* wrapped .exe was found; trying to launch it */
-		if (!ExeWrapperFunctions::RunWrappedProcess(unwrappedExe.data()))
+		if (!ExeWrapperFunctions::RunWrappedProcess())
 		{
 			system("pause");
 		}
