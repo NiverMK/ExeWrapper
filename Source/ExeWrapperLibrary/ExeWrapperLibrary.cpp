@@ -1,48 +1,55 @@
 #include "ExeWrapperLibrary.h"
-#include "../DebugLibrary/DebugLibrary.h"
 #include "../../Resources/resource.h"
 #include "../ProcessLibrary/ProcessLibrary.h"
-#include "../ResourcesLibrary/ResourcesLibrary.h"
-#include "../ResourcesLibrary/ResourcesLibStructs.h"
+#include "../CmdLineArguments/CmdLineArgumentsKeeper.h"
+#include "../ResourcesLibrary/GroupIconResourceLibrary/GroupIconResourceLibrary.h"
+#include "../CommonLibrary/CommonLibrary.h"
+#include "../DebugLibrary/DebugLibrary.h"
 
-#include <sstream>
 #include <fstream>
 
 bool ExeWrapperFunctions::WrapExeFile()
 {
-	EW_LOG(L"Drag here .exe file");
+	CmdLineArgumentsKeeper& cmdKeeper = CmdLineArgumentsKeeper::GetCmdLaunchParamsKeeper();
+	const bool hasWrapCmd = cmdKeeper.HasLaunchParam<CLA_Wrap>();
+	const std::wstring& wrapCmdValue = cmdKeeper.GetParamValue<CLA_Wrap>();
 
-	std::wstring pathToExeFile;
-	std::getline(std::wcin, pathToExeFile);
+	std::filesystem::path pathToExeFile;
 
-	if (pathToExeFile.length())
+	if (hasWrapCmd && !wrapCmdValue.empty())
 	{
-		if (pathToExeFile.data()[0] == L'\"')
-		{
-			pathToExeFile = pathToExeFile.substr(1, pathToExeFile.length() - 1);
-		}
-		if (pathToExeFile.data()[pathToExeFile.length() - 1] == L'\"')
-		{
-			pathToExeFile = pathToExeFile.substr(0, pathToExeFile.length() - 1);
-		}
+		pathToExeFile = std::filesystem::path(wrapCmdValue);
 	}
 	else
 	{
-		return false;
+		EW_LOG(L"Drag here .exe file");
+		RequestPath(pathToExeFile);
 	}
 
-	std::string exeBytes;
-	if (!GetExeFileBytes(pathToExeFile, exeBytes))
+	if (pathToExeFile.empty())
 	{
+		EW_LOG_FUNC(L"Path is empty!");
 		return false;
 	}
 
-	const size_t pos = pathToExeFile.rfind(L"\\");
-	const std::wstring newExeFileName = pathToExeFile.substr(pos + 1);
+	const std::wstring newExeFileName = pathToExeFile.filename();
+
+	if (newExeFileName.empty())
+	{
+		EW_LOG_FUNC(L"Path %s hasn't filename!", pathToExeFile.wstring().data());
+		return false;
+	}
+
 	std::filesystem::path newExeFilePath;
 
 	if (!DuplicateSelfExeFile(newExeFileName.data(), newExeFilePath))
 	{
+		return false;
+	}
+
+	if (!TransferIcons(pathToExeFile, newExeFilePath))
+	{
+		RemoveFile(newExeFilePath);
 		return false;
 	}
 	
@@ -51,25 +58,57 @@ bool ExeWrapperFunctions::WrapExeFile()
 
 		if (!newExeResourceSetter.IsValid())
 		{
+			RemoveFile(newExeFilePath);
+			return false;
+		}
+
+		std::string exeBytes;
+		if (!GetExeFileBytes(pathToExeFile, exeBytes))
+		{
+			RemoveFile(newExeFilePath);
 			return false;
 		}
 
 		if (!newExeResourceSetter.SetResourceIntoExeFile(IDR_BIN1, IDR_BIN1_TYPE, exeBytes))
 		{
+			RemoveFile(newExeFilePath);
 			return false;
 		}
 	}
 
-	if (!TransferIcons(pathToExeFile.data(), newExeFilePath.wstring().data()))
-	{
-		return false;
-	}
+	EW_LOG(L"Wrapped .exe file saved in %s", newExeFilePath.wstring().data());
 
 	return true;
 }
 
-bool ExeWrapperFunctions::RunWrappedProcess()
+bool ExeWrapperFunctions::UnwrapExeFile()
 {
+	if (!HasWrappedExe())
+	{
+		EW_LOG_FUNC(L"There is no wrapped .exe!");
+		return false;
+	}
+
+	CmdLineArgumentsKeeper& cmdKeeper = CmdLineArgumentsKeeper::GetCmdLaunchParamsKeeper();
+
+	std::filesystem::path pathToUnwrappedExe;
+
+	if (const std::wstring& wrapCmdValue = cmdKeeper.GetParamValue<CLA_Unwrap>(); !wrapCmdValue.empty())
+	{
+		pathToUnwrappedExe = std::filesystem::path(wrapCmdValue);
+	}
+	else
+	{
+		EW_LOG(L"Drag here folder");
+		RequestPath(pathToUnwrappedExe);
+	}
+
+	if (pathToUnwrappedExe.empty())
+	{
+		EW_LOG_FUNC(L"Path is empty!");
+		return false;
+	}
+
 	ResourceGetter newExeResourceSetter{ nullptr };
 
 	std::string exeBytes;
@@ -78,7 +117,86 @@ bool ExeWrapperFunctions::RunWrappedProcess()
 		return false;
 	}
 
-	return ProcessLibrary::CreateProcessFromRam(exeBytes.data());
+	std::filesystem::path pathToSelf;
+	if (!CommonLibrary::GetSelfPath(pathToSelf))
+	{
+		return false;
+	}
+
+	pathToUnwrappedExe /= pathToSelf.filename();
+
+	if (pathToSelf == pathToUnwrappedExe)
+	{
+		EW_LOG_FUNC(L"File (%s) already exists!", pathToUnwrappedExe.wstring().data());
+		return false;
+	}
+
+	std::ofstream exeFile(pathToUnwrappedExe, std::ios::binary);
+	exeFile << exeBytes;
+
+	EW_LOG(L"Unwrapped .exe file saved in %s", pathToUnwrappedExe.wstring().data());
+
+	return true;
+}
+
+bool ExeWrapperFunctions::RunWrappedProcess()
+{
+	ResourceGetter newExeResourceGetter{ nullptr };
+
+	std::string exeBytes;
+	if (!newExeResourceGetter.GetResourceFromExeFile(IDR_BIN1, IDR_BIN1_TYPE, exeBytes))
+	{
+		return false;
+	}
+
+	CmdLineArgumentsKeeper& cmdKeeper = CmdLineArgumentsKeeper::GetCmdLaunchParamsKeeper();
+	std::wstring launchArgs = cmdKeeper.GetProcessLaunchArgs();
+
+	EW_LOG(L"Running process with launch args '%s'", launchArgs.data());
+
+	return ProcessLibrary::CreateProcessFromRam(exeBytes.data(), launchArgs.data());
+}
+
+bool ExeWrapperFunctions::HasWrappedExe()
+{
+	ResourceGetter binGetter{ nullptr };
+	DWORD binSize = binGetter.GetResourceSize(IDR_BIN1, IDR_BIN1_TYPE);
+
+	return binSize > DEFAULT_BIN1_SIZE;
+}
+
+bool ExeWrapperFunctions::RequestPath(std::filesystem::path& path_)
+{
+	std::string pathToExeFile;
+	std::getline(std::cin, pathToExeFile);
+
+	if (!pathToExeFile.length())
+	{
+		EW_LOG_FUNC(L"Path is empty!");
+		return false;
+	}
+	else if (pathToExeFile.length() > 2)
+	{
+		if (pathToExeFile.data()[0] == '\"')
+		{
+			pathToExeFile = pathToExeFile.substr(1, pathToExeFile.length() - 1);
+		}
+		if (pathToExeFile.data()[pathToExeFile.length() - 1] == '\"')
+		{
+			pathToExeFile = pathToExeFile.substr(0, pathToExeFile.length() - 1);
+		}
+	}
+
+	std::wstring wPathToExeFile;
+	if (!CommonLibrary::ConvertMultiByteToWideChar(pathToExeFile.data(), false, wPathToExeFile))
+	{
+		EW_LOG_WIN_ERROR(L"Can't convert the path %hs from chars to wchars!", pathToExeFile.data());
+		return false;
+	}
+
+	path_ = std::filesystem::path(wPathToExeFile);
+
+	return true;
 }
 
 bool ExeWrapperFunctions::GetExeFileBytes(const std::wstring& _pathToExeFile, std::string& outBytes_)
@@ -88,7 +206,7 @@ bool ExeWrapperFunctions::GetExeFileBytes(const std::wstring& _pathToExeFile, st
 
 	if (!exeFile.is_open())
 	{
-		EW_LOG_FUNC(L"Cannot open the file!");
+		EW_LOG_FUNC(L"Can't open the file!");
 
 		return false;
 	}
@@ -100,7 +218,7 @@ bool ExeWrapperFunctions::GetExeFileBytes(const std::wstring& _pathToExeFile, st
 
 	if (!exeFile.read(outBytes_.data(), fileSize))
 	{
-		EW_LOG_FUNC(L"Cannot read the file!");
+		EW_LOG_FUNC(L"Can't read the file!");
 
 		return true;
 	};
@@ -108,149 +226,89 @@ bool ExeWrapperFunctions::GetExeFileBytes(const std::wstring& _pathToExeFile, st
 	return true;
 }
 
-bool ExeWrapperFunctions::TransferIcons(const wchar_t* _sourceExeFile, const wchar_t* _destExeFile)
+bool ExeWrapperFunctions::TransferIcons(const std::filesystem::path& _sourceExeFile, const std::filesystem::path& _destExeFile)
 {
-	/* get image resources info from source .exe */
-	std::string sourceGrpIconResBytes;
-	std::vector<std::string> sourceIconResources;
-
-	PGRPICONHEADER pSrcGrpIconHeader = nullptr;
-	PGRPICONDIRENTRY pSrcGrpIconDirEntry = nullptr;
-
+	GroupIconResData srcGrpIconResData;
 	{
-		ResourceGetter sourceExeFileGetter(_sourceExeFile);
+		/* get image resources info from source .exe */
+		GroupIconResourceGetter srcExeResGetter(_sourceExeFile.wstring().data());
 
-		if (!sourceExeFileGetter.IsValid())
+		if (!srcExeResGetter.IsValid())
 		{
 			return false;
 		}
 
-		std::vector<ResourceName> grpIconResources;
-
-		if (!sourceExeFileGetter.GetResourcesByType(RT_GROUP_ICON, grpIconResources) || !grpIconResources.size())
+		if (!srcExeResGetter.ReadGrpIconResources(true, srcGrpIconResData))
 		{
-			/* there are no icons in .exe file */
-			return false;
-		}
-
-		/* get first RT_GROUP_ICON resource */
-		if (!sourceExeFileGetter.GetResourceFromExeFile(grpIconResources[0], RT_GROUP_ICON, sourceGrpIconResBytes))
-		{
-			return false;
-		}
-
-		pSrcGrpIconHeader = reinterpret_cast<PGRPICONHEADER>(sourceGrpIconResBytes.data());
-		pSrcGrpIconDirEntry = reinterpret_cast<PGRPICONDIRENTRY>(sourceGrpIconResBytes.data() + sizeof(GRPICONHEADER));
-
-		sourceIconResources.reserve(pSrcGrpIconHeader->ImageCount);
-
-		for (int index = 0; index < pSrcGrpIconHeader->ImageCount; index++)
-		{
-			sourceIconResources.push_back({});
-			if (!sourceExeFileGetter.GetResourceFromExeFile(pSrcGrpIconDirEntry[index].nId, RT_ICON, sourceIconResources.back()))
-			{
-				return false;
-			}
+			/* source .exe hasn't icons. Remove them in dest .exe */
+			EW_LOG(L".exe file %s hasn't icon resources. Removing them from .exe %s", _sourceExeFile.wstring().data(), _destExeFile.wstring().data());
 		}
 	}
 
-	/* get group icons info from destination .exe file */
-	std::string destGrpIconResBytes;
-	ResourceName destGrpIconResource;
-
-	PGRPICONHEADER pDestGrpIconHeader = nullptr;
-	PGRPICONDIRENTRY pDestGrpIconDirEntry = nullptr;
-
+	GroupIconResData destGrpIconResData;
 	{
-		ResourceGetter destExeFileGetter(_destExeFile);
-		std::vector<ResourceName> destGrpIconResources;
+		/* get group icons info from destination .exe file */
+		GroupIconResourceGetter destExeResGetter(_destExeFile.wstring().data());
 
-		if (!destExeFileGetter.GetResourcesByType(RT_GROUP_ICON, destGrpIconResources) || !destGrpIconResources.size())
-		{
-			/* there are no icons in .exe file */
-			return false;
-		}
-
-		destGrpIconResource = destGrpIconResources.front();
-
-		if (!destExeFileGetter.GetResourceFromExeFile(destGrpIconResource, RT_GROUP_ICON, destGrpIconResBytes))
+		if (!destExeResGetter.IsValid())
 		{
 			return false;
 		}
 
-		pDestGrpIconHeader = reinterpret_cast<PGRPICONHEADER>(destGrpIconResBytes.data());
-		pDestGrpIconDirEntry = reinterpret_cast<PGRPICONDIRENTRY>(destGrpIconResBytes.data() + sizeof(GRPICONHEADER));
+		if (!destExeResGetter.ReadGrpIconResources(false, destGrpIconResData))
+		{
+			EW_LOG(L".exe file %s hasn't icon resources", _destExeFile.wstring().data());
+		}
 
 		/* free .exe before writing into it */
-	}
-
-	/* transfer icons */
-	{
-		std::string newDestGrpIconResBytes;
-		newDestGrpIconResBytes.reserve(sourceGrpIconResBytes.size());
-		newDestGrpIconResBytes.append(destGrpIconResBytes.data(), sizeof(GRPICONHEADER));
-		PGRPICONHEADER pNewDestGrpIconHeader = reinterpret_cast<PGRPICONHEADER>(newDestGrpIconResBytes.data());
-		pNewDestGrpIconHeader->ImageCount = 0;
-
-		ResourceSetter destSetter(_destExeFile);
-
-		if (!destSetter.IsValid())
+		if (!destExeResGetter.Release())
 		{
 			return false;
 		}
 
-		int commonIconsAmount = pSrcGrpIconHeader->ImageCount < pDestGrpIconHeader->ImageCount 
-			? pSrcGrpIconHeader->ImageCount 
-			: pDestGrpIconHeader->ImageCount;
-
-		/* first - wrap common amount of icons in dest exe */
-		for (int index = 0; index < commonIconsAmount; index++)
+		if (destGrpIconResData.HasGroupData() && destGrpIconResData.GetGroupIconHeader()->ImageCount)
 		{
-			if (!destSetter.SetResourceIntoExeFile(pDestGrpIconDirEntry[index].nId, RT_ICON, sourceIconResources[index]))
+			/* remove old icons */
+			GroupIconResourceSetter destExeResCleaner(_destExeFile.wstring().data());
+
+			if (!destExeResCleaner.IsValid())
 			{
 				return false;
 			}
 
-			/* update PGRPICONHEADER with new info and old id */
-			GRPICONDIRENTRY grpIconDirEntry = pSrcGrpIconDirEntry[index];
-			grpIconDirEntry.nId = pDestGrpIconDirEntry[index].nId;
-			newDestGrpIconResBytes.append(static_cast<char*>(static_cast<void*>(&grpIconDirEntry)), sizeof(grpIconDirEntry));
-			pNewDestGrpIconHeader->ImageCount++;
+			destExeResCleaner.CleanGrpIconResources(destGrpIconResData);
 		}
+	}
 
-		/* second - try to balance images amount */
-		if (pSrcGrpIconHeader->ImageCount < pDestGrpIconHeader->ImageCount)
+	if (!srcGrpIconResData.HasIcons())
+	{
+		/* there are no icons to transfer */
+		return true;
+	}
+
+	GroupIconResData newGrpIconResData = std::move(srcGrpIconResData);
+
+	if (destGrpIconResData.HasIcons())
+	{
+		/* use base icons ids. if destGrpIconResData is empty, use ids from srcGrpIconResData */
+		newGrpIconResData.SetResourceName(destGrpIconResData.GetResourceName());
+
+		for (int index = 0; index < newGrpIconResData.GetGroupIconHeader()->ImageCount; index++)
 		{
-			/* delete extra icons */
-			for (int index = commonIconsAmount; index < pDestGrpIconHeader->ImageCount; index++)
-			{
-				destSetter.SetResourceIntoExeFile(pDestGrpIconDirEntry[index].nId, RT_ICON, std::string());
-			}
+			newGrpIconResData.GetGroupIconDirEntry()[index].nId = destGrpIconResData.GetGroupIconDirEntry()->nId + index;
 		}
-		else if (pSrcGrpIconHeader->ImageCount > pDestGrpIconHeader->ImageCount)
-		{
-			/* try to add next icons into resources */
-			for (int index = commonIconsAmount; index < pSrcGrpIconHeader->ImageCount; index++)
-			{
-				GRPICONDIRENTRY grpIconDirEntry = pSrcGrpIconDirEntry[index];
-				grpIconDirEntry.nId = pDestGrpIconDirEntry[index - 1].nId + 1;
+	}
 
-				if (!destSetter.SetResourceIntoExeFile(grpIconDirEntry.nId, RT_ICON, sourceIconResources[index]))
-				{					
-					EW_LOG_FUNC(L"Can't add extra icon with Id %u", grpIconDirEntry.nId);
-					break;
-				}
+	GroupIconResourceSetter srcExeResGetter(_destExeFile.wstring().data());
 
-				newDestGrpIconResBytes.append(static_cast<char*>(static_cast<void*>(&grpIconDirEntry)), sizeof(grpIconDirEntry));
-				pNewDestGrpIconHeader->ImageCount++;
-			}
-		}
+	if (!srcExeResGetter.IsValid())
+	{
+		return false;
+	}
 
-		/* third - write updated PGRPICONHEADER */
-		if (!destSetter.SetResourceIntoExeFile(destGrpIconResource, RT_GROUP_ICON, newDestGrpIconResBytes))
-		{
-			return false;
-		}
+	if (!srcExeResGetter.SetGrpIconResources(newGrpIconResData))
+	{
+		return false;
 	}
 
 	return true;
@@ -265,13 +323,13 @@ bool ExeWrapperFunctions::DuplicateSelfExeFile(const wchar_t* _newFileName, std:
 		return false;
 	}
 
-	wchar_t* pathToFile = new wchar_t[MAX_PATH];
-	GetModuleFileName(NULL, pathToFile, MAX_PATH);
+	std::filesystem::path pathToSelf;
+	if (!CommonLibrary::GetSelfPath(pathToSelf))
+	{
+		return false;
+	}
 
-	const std::wstring pathToFileStr(pathToFile);
-	delete[] pathToFile;
-
-	if (!CopyFile(pathToFileStr.data(), _newFileName, true))
+	if (!CopyFile(pathToSelf.wstring().data(), _newFileName, true))
 	{
 		EW_LOG_FUNC(L"File with selected name already exists!");
 
@@ -291,6 +349,17 @@ bool ExeWrapperFunctions::DuplicateSelfExeFile(const wchar_t* _newFileName, std:
 	}
 
 	newExePath_ = std::move(pathToExeFile);
+
+	return true;
+}
+
+bool ExeWrapperFunctions::RemoveFile(const std::filesystem::path& _path)
+{
+	if (!std::filesystem::remove(_path))
+	{
+		EW_LOG_FUNC(L"Can't remove the file %s!", _path.wstring().data());
+		return false;
+	}
 
 	return true;
 }

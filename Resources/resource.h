@@ -6,6 +6,7 @@
 #define IDI_ICON1                       102
 
 #define IDR_BIN1_TYPE					L"BIN"
+#define DEFAULT_BIN1_SIZE				1
 
 // Next default values for new objects
 // 

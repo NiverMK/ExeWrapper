@@ -10,7 +10,7 @@
 
 typedef NTSTATUS(NTAPI* NtUnmapViewOfSectionFunc)(HANDLE, PVOID);
 
-bool ProcessLibrary::CreateHollowProcess(HMODULE& pBaseAddr_, PROCESS_INFORMATION& pInfo_)
+bool ProcessLibrary::CreateHollowProcess(wchar_t* _launchArgs, HMODULE& pBaseAddr_, PROCESS_INFORMATION& pInfo_)
 {
 	PROCESS_INFORMATION pi;
 	STARTUPINFO si;
@@ -27,7 +27,7 @@ bool ProcessLibrary::CreateHollowProcess(HMODULE& pBaseAddr_, PROCESS_INFORMATIO
 	delete[] pathToExeFile;
 
 	/* CreateProcess gives PROCESS_ALL_ACCESS rights for created process */
-	if (!CreateProcess(nullptr, pathToExeFileStr.data(), nullptr, nullptr, false, CREATE_SUSPENDED | CREATE_NEW_CONSOLE, 0, 0, &si, &pi))
+	if (!CreateProcess(pathToExeFileStr.data(), _launchArgs, nullptr, nullptr, false, CREATE_SUSPENDED | CREATE_NEW_CONSOLE, 0, 0, &si, &pi))
 	{
 		EW_LOG_WIN_ERROR(L"Can't create the process!");
 
@@ -102,12 +102,12 @@ LPVOID ProcessLibrary::WriteProcessPages(const PROCESS_INFORMATION& _pInfo, cons
 	return allocPtr;
 }
 
-bool ProcessLibrary::Wow64_CreateProcess(char* _exeBytes)
+bool ProcessLibrary::Wow64_CreateProcess(char* _exeBytes, wchar_t* _launchArgs)
 {
 	HMODULE pBaseAddr = NULL;
 	PROCESS_INFORMATION pi;
 
-	if (!CreateHollowProcess(pBaseAddr, pi))
+	if (!CreateHollowProcess(_launchArgs, pBaseAddr, pi))
 	{
 		return false;
 	}
@@ -152,12 +152,12 @@ bool ProcessLibrary::Wow64_CreateProcess(char* _exeBytes)
 }
 
 #if _WIN64
-bool ProcessLibrary::x64_CreateProcess(char* _exeBytes)
+bool ProcessLibrary::x64_CreateProcess(char* _exeBytes, wchar_t* _launchArgs)
 {
 	HMODULE pBaseAddr = NULL;
 	PROCESS_INFORMATION pi;
 
-	if (!CreateHollowProcess(pBaseAddr, pi))
+	if (!CreateHollowProcess(_launchArgs, pBaseAddr, pi))
 	{
 		return false;
 	}
@@ -202,16 +202,16 @@ bool ProcessLibrary::x64_CreateProcess(char* _exeBytes)
 }
 #endif
 
-bool ProcessLibrary::CreateProcessFromRam(char* _exeBytes)
+bool ProcessLibrary::CreateProcessFromRam(char* _exeBytes, wchar_t* _launchArgs)
 {
 #if _WIN64
 	/* x64 app on x64 system */
-	return x64_CreateProcess(_exeBytes);
+	return x64_CreateProcess(_exeBytes, _launchArgs);
 #else
 	if (BOOL isSelfWow = false; IsWow64Process(GetCurrentProcess(), &isSelfWow) && isSelfWow)
 	{
 		/* x32 app on x64 system */
-		return Wow64_CreateProcess(_exeBytes);
+		return Wow64_CreateProcess(_exeBytes, _launchArgs);
 	}
 	else
 	{

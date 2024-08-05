@@ -11,7 +11,7 @@ void DebugLibrary::PrintSelfMemoryBlock(const SIZE_T _start, const SIZE_T _lines
 		return;
 	}
 
-	HMODULE selfModule = GetModuleHandleW(L"ExeWrapper.exe");
+	HMODULE selfModule = GetModuleHandleW(NULL);
 
 	if (!selfModule)
 	{
@@ -23,11 +23,11 @@ void DebugLibrary::PrintSelfMemoryBlock(const SIZE_T _start, const SIZE_T _lines
 
 	for (SIZE_T i = 0; i < _lines; i++)
 	{
-		printf("%p   ", bytePtr);
+		EW_LOG(L"%p   ", bytePtr);
 
 		for (SIZE_T j = 0; j < _columns; j++)
 		{
-			printf("%02X ", static_cast<unsigned char>(*bytePtr));
+			EW_LOG(L"%02X ", static_cast<unsigned char>(*bytePtr));
 			bytePtr++;
 		}
 
@@ -49,16 +49,16 @@ void DebugLibrary::PrintProcessMemoryBlock(
 
 	const char* bytePtr = reinterpret_cast<const char*>(_imageBase) + _start;
 	unsigned char* buffer = new unsigned char[_lines * _columns];
-	
+
 	if (ReadProcessMemory(_hProcess, bytePtr, buffer, _lines * _columns, nullptr))
 	{
 		for (SIZE_T i = 0; i < _lines; i++)
 		{
-			printf("%p   ", bytePtr);
+			EW_LOG(L"%p   ", bytePtr);
 
 			for (SIZE_T j = 0; j < _columns; j++)
 			{
-				printf("%02X ", buffer[i * _columns + j]);
+				EW_LOG(L"%02X ", buffer[i * _columns + j]);
 				bytePtr++;
 			}
 
@@ -100,11 +100,11 @@ void DebugLibrary::PrintFileMemoryBlock(const wchar_t* _fileName, const SIZE_T _
 
 			for (SIZE_T i = 0; i < _lines; i++)
 			{
-				printf("%p   ", bytePtr);
+				EW_LOG(L"%p   ", bytePtr);
 
 				for (SIZE_T j = 0; j < _columns; j++)
 				{
-					printf("%02X ", static_cast<unsigned char>(*bytePtr));
+					EW_LOG(L"%02X ", static_cast<unsigned char>(*bytePtr));
 					bytePtr++;
 				}
 				EW_LOG(L"");

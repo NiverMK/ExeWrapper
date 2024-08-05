@@ -80,7 +80,7 @@ ResourceGetter::ResourceGetter(const wchar_t* _pathToExe)
 
 		if (hExe == NULL)
 		{
-			EW_LOG_WIN_ERROR(L"Failed to load library!");
+			EW_LOG_WIN_ERROR(L"Failed to load library %s!", _pathToExe);
 		}
 	}
 }
@@ -108,9 +108,9 @@ DWORD ResourceGetter::GetResourceSize(const wchar_t* _resourceName, const wchar_
 
 	if (!hRes)
 	{
-		EW_LOG_WIN_ERROR(L"Failed to find resource %s!", _resourceName);
+		EW_LOG_WIN_ERROR(L"Failed to find resource %s in %s!", _resourceName, pathToExeFile.data());
 
-		return false;
+		return 0;
 	}
 
 	return SizeofResource(hExe, hRes);
@@ -120,7 +120,7 @@ bool ResourceGetter::GetResourcesByType(LPCWSTR _lpType, std::vector<ResourceNam
 {
 	if (!EnumResourceNames(hExe, _lpType, (ENUMRESNAMEPROC)EnumNamesFunc, NULL))
 	{
-		EW_LOG_WIN_ERROR(L"Failed to get resources of type %lld!", (uint64_t)_lpType);
+		EW_LOG_WIN_ERROR(L"Failed to get resources of type %lld in %s!", (uint64_t)_lpType, pathToExeFile.data());
 
 		return false;
 	}
@@ -141,7 +141,7 @@ bool ResourceGetter::GetResourceFromExeFile(const wchar_t* _resourceName, const 
 
 	if (!hRes)
 	{
-		EW_LOG_WIN_ERROR(L"Failed to find resource %s!", _resourceName);
+		EW_LOG_WIN_ERROR(L"Failed to find resource %s in %s!", _resourceName, pathToExeFile.data());
 
 		return false;
 	}
@@ -150,7 +150,7 @@ bool ResourceGetter::GetResourceFromExeFile(const wchar_t* _resourceName, const 
 
 	if (!hResourceLoaded)
 	{
-		EW_LOG_WIN_ERROR(L"Failed to load resource %s!", _resourceName);
+		EW_LOG_WIN_ERROR(L"Failed to load resource %s in %s!", _resourceName, pathToExeFile.data());
 
 		return false;
 	}
@@ -159,7 +159,7 @@ bool ResourceGetter::GetResourceFromExeFile(const wchar_t* _resourceName, const 
 
 	if (!resLock)
 	{
-		EW_LOG_WIN_ERROR(L"Failed to lock resource %s!", _resourceName);
+		EW_LOG_WIN_ERROR(L"Failed to lock resource %s in %s!", _resourceName, pathToExeFile.data());
 
 		return false;
 	}

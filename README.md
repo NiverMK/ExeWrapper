@@ -24,4 +24,3 @@ x32 ExeWrapper can wrap and run x32 .exe files on x64 system.
 # TODO
 - Move source *.exe attributes into created one;
 - Add ability to wrap x32 .exe by x64 ExeWrapper and run it on x64 system.
-- Add ability to remove icons if wrapped .exe hasn't itself icons.

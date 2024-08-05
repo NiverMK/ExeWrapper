@@ -42,6 +42,24 @@
     <Filter Include="Header Files\ProcessLibrary">
       <UniqueIdentifier>{3846102d-ec0d-40f7-ba5c-3979206eb083}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\ResourcesLibrary\GroupIconResourceLibrary">
+      <UniqueIdentifier>{6cd0d8bd-ee1c-421e-be9d-67890141ca34}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ResourcesLibrary\GroupIconResourceLibrary">
+      <UniqueIdentifier>{3126a6be-1071-4808-8534-aaf0e0da6e66}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\CmdLineArguments">
+      <UniqueIdentifier>{c3d83028-fa35-4509-b0c9-8a5658ca1bce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\CmdLineArguments">
+      <UniqueIdentifier>{7453e585-7ec2-4f47-8161-b6cd69e11677}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\CommonLibrary">
+      <UniqueIdentifier>{dccfafe7-347d-42aa-a6c2-402ada51f312}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\CommonLibrary">
+      <UniqueIdentifier>{d39fe8ba-96a5-48d7-9a1d-b23deeb7f37a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resources\resource.h">
@@ -68,6 +86,15 @@
     <ClInclude Include="Source\PebLibrary\PebLibStructs.h">
       <Filter>Header Files\PebLibrary</Filter>
     </ClInclude>
+    <ClInclude Include="Source\ResourcesLibrary\GroupIconResourceLibrary\GroupIconResourceLibrary.h">
+      <Filter>Header Files\ResourcesLibrary\GroupIconResourceLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\CmdLineArguments\CmdLineArgumentsKeeper.h">
+      <Filter>Header Files\CmdLineArguments</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\CommonLibrary\CommonLibrary.h">
+      <Filter>Header Files\CommonLibrary</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\ExeWrapper.cpp">
@@ -87,6 +114,15 @@
     </ClCompile>
     <ClCompile Include="Source\ProcessLibrary\ProcessLibrary.cpp">
       <Filter>Source Files\ProcessLibrary</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\ResourcesLibrary\GroupIconResourceLibrary\GroupIconResourceLibrary.cpp">
+      <Filter>Source Files\ResourcesLibrary\GroupIconResourceLibrary</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\CmdLineArguments\CmdLineArgumentsKeeper.cpp">
+      <Filter>Source Files\CmdLineArguments</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\CommonLibrary\CommonLibrary.cpp">
+      <Filter>Source Files\CommonLibrary</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

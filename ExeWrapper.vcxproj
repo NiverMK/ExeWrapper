@@ -20,20 +20,26 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resources\resource.h" />
+    <ClInclude Include="Source\CmdLineArguments\CmdLineArgumentsKeeper.h" />
+    <ClInclude Include="Source\CommonLibrary\CommonLibrary.h" />
     <ClInclude Include="Source\DebugLibrary\DebugLibrary.h" />
     <ClInclude Include="Source\ExeWrapperLibrary\ExeWrapperLibrary.h" />
     <ClInclude Include="Source\PebLibrary\PebLibrary.h" />
     <ClInclude Include="Source\PebLibrary\PebLibStructs.h" />
     <ClInclude Include="Source\ProcessLibrary\ProcessLibrary.h" />
+    <ClInclude Include="Source\ResourcesLibrary\GroupIconResourceLibrary\GroupIconResourceLibrary.h" />
     <ClInclude Include="Source\ResourcesLibrary\ResourcesLibrary.h" />
     <ClInclude Include="Source\ResourcesLibrary\ResourcesLibStructs.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Source\CmdLineArguments\CmdLineArgumentsKeeper.cpp" />
+    <ClCompile Include="Source\CommonLibrary\CommonLibrary.cpp" />
     <ClCompile Include="Source\DebugLibrary\DebugLibrary.cpp" />
     <ClCompile Include="Source\ExeWrapper.cpp" />
     <ClCompile Include="Source\ExeWrapperLibrary\ExeWrapperLibrary.cpp" />
     <ClCompile Include="Source\PebLibrary\PebLibrary.cpp" />
     <ClCompile Include="Source\ProcessLibrary\ProcessLibrary.cpp" />
+    <ClCompile Include="Source\ResourcesLibrary\GroupIconResourceLibrary\GroupIconResourceLibrary.cpp" />
     <ClCompile Include="Source\ResourcesLibrary\ResourcesLibrary.cpp" />
   </ItemGroup>
   <ItemGroup>

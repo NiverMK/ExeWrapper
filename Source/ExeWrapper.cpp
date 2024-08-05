@@ -1,43 +1,23 @@
 #include "ExeWrapperLibrary/ExeWrapperLibrary.h"
-#include "ResourcesLibrary/ResourcesLibrary.h"
 #include "DebugLibrary/DebugLibrary.h"
-#include "../Resources/resource.h"
-
-#define WRAP_NEW_EXE "--wrap"
-#define DEFAULT_BIN_SIZE 1
+#include "CmdLineArguments/CmdLineArgumentsKeeper.h"
 
 int main(int argc, char* argv[])
 {
-	bool startWrapping = false;
+	CmdLineArgumentsKeeper& cmdParser = CmdLineArgumentsKeeper::GetCmdLaunchParamsKeeper();
+	cmdParser.ParseCmdParams(argc, argv);
 
-	for (int index = 0; index < argc; index++)
-	{
-		std::string str = argv[index];
+	const bool hasUnwrapCmd = cmdParser.HasLaunchParam<CLA_Unwrap>();
+	const bool hasWrapCmd = cmdParser.HasLaunchParam<CLA_Wrap>();
+	const bool hasWrappedBin = ExeWrapperFunctions::HasWrappedExe();
 
-		if (strstr(argv[index], WRAP_NEW_EXE))
-		{
-			EW_LOG(L"Launch param WRAP_NEW_EXE was found; starting wrapping procedure");
-
-			startWrapping = true;
-			break;
-		}
-	}
-
-	if (!startWrapping)
-	{
-		ResourceGetter binGetter{ nullptr };
-		DWORD binSize = binGetter.GetResourceSize(IDR_BIN1, IDR_BIN1_TYPE);
-
-		if (binSize == DEFAULT_BIN_SIZE)
-		{
-			EW_LOG(L"There is no wrapped .exe; starting wrapping procedure");
-
-			startWrapping = true;
-		}
-	}
+	const bool startWrapping = !hasWrappedBin && (hasWrapCmd || !hasUnwrapCmd);
+	const bool startUnwrapping = hasUnwrapCmd && !hasWrapCmd;
 
 	if (startWrapping)
 	{
+		EW_LOG(L"Starting wrapping!");
+
 		if (ExeWrapperFunctions::WrapExeFile())
 		{
 			EW_LOG(L"Wrapping was successful!");
@@ -45,13 +25,21 @@ int main(int argc, char* argv[])
 
 		system("pause");
 	}
+	else if (startUnwrapping)
+	{
+		EW_LOG(L"Starting unwrapping!");
+
+		if (ExeWrapperFunctions::UnwrapExeFile())
+		{
+			EW_LOG(L"Unwrapping was successful!");
+		}
+
+		system("pause");
+	}
 	else
 	{
-		/* wrapped .exe was found; trying to launch it */
-		if (!ExeWrapperFunctions::RunWrappedProcess())
-		{
-			system("pause");
-		}
+		ExeWrapperFunctions::RunWrappedProcess();
+
 	}
 
 	return 0;
